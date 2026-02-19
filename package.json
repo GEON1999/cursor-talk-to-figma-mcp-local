@@ -1,11 +1,11 @@
 {
-  "name": "cursor-talk-to-figma-mcp",
-  "description": "Cursor Talk to Figma MCP",
-  "version": "0.3.3",
+  "name": "handle-figma-mcp",
+  "description": "Handle Figma MCP - Custom MCP server for Figma integration",
+  "version": "0.4.7",
   "module": "dist/server.js",
   "main": "dist/server.js",
   "bin": {
-    "cursor-talk-to-figma-mcp": "dist/server.js"
+    "handle-figma-mcp": "dist/server.js"
   },
   "files": [
     "dist",

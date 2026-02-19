@@ -962,6 +962,202 @@ server.tool(
   }
 );
 
+// Create Paint Style Tool
+server.tool(
+  "create_paint_style",
+  "Create a new color style (paint style) in Figma. Use folder notation with '/' in the name to organize styles into groups, e.g., 'teal/teal-50'.",
+  {
+    name: z.string().describe("Name of the color style. Use '/' for grouping, e.g., 'teal/teal-50'"),
+    r: z.number().min(0).max(1).describe("Red component (0-1)"),
+    g: z.number().min(0).max(1).describe("Green component (0-1)"),
+    b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+    a: z.number().min(0).max(1).optional().describe("Alpha/opacity (0-1, default: 1)"),
+  },
+  async ({ name, r, g, b, a }: any) => {
+    try {
+      const result = await sendCommandToFigma("create_paint_style", {
+        name,
+        color: { r, g, b, a: a !== undefined ? a : 1 },
+      });
+      const typedResult = result as { id: string; name: string; key: string };
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created color style "${typedResult.name}" (ID: ${typedResult.id}, Key: ${typedResult.key})`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating paint style: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Create Multiple Paint Styles Tool
+server.tool(
+  "create_multiple_paint_styles",
+  "Create multiple color styles (paint styles) in Figma at once. Use folder notation with '/' in names for grouping.",
+  {
+    styles: z.array(z.object({
+      name: z.string().describe("Name of the color style, e.g., 'teal/teal-50'"),
+      r: z.number().min(0).max(1).describe("Red component (0-1)"),
+      g: z.number().min(0).max(1).describe("Green component (0-1)"),
+      b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+      a: z.number().min(0).max(1).optional().describe("Alpha/opacity (0-1, default: 1)"),
+    })).describe("Array of color styles to create"),
+  },
+  async ({ styles }: any) => {
+    try {
+      const mappedStyles = styles.map((s: any) => ({
+        name: s.name,
+        color: { r: s.r, g: s.g, b: s.b, a: s.a !== undefined ? s.a : 1 },
+      }));
+      const result = await sendCommandToFigma("create_multiple_paint_styles", {
+        styles: mappedStyles,
+      });
+      const typedResult = result as {
+        totalRequested: number;
+        created: number;
+        failed: number;
+        results: Array<{ success: boolean; id: string; name: string; key: string }>;
+        errors: Array<{ success: boolean; name: string; error: string }>;
+      };
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created ${typedResult.created}/${typedResult.totalRequested} color styles.${typedResult.failed > 0 ? ` Failed: ${typedResult.failed}` : ''}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating multiple paint styles: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Apply Paint Style to Node Tool
+server.tool(
+  "apply_paint_style",
+  "Apply an existing color style (paint style) to a node's fill in Figma. Use get_styles to find style IDs first.",
+  {
+    nodeId: z.string().describe("The ID of the node to apply the style to"),
+    styleId: z.string().describe("The ID of the paint style to apply (from get_styles)"),
+  },
+  async ({ nodeId, styleId }: any) => {
+    try {
+      const result = await sendCommandToFigma("apply_paint_style", {
+        nodeId,
+        styleId,
+      });
+      const typedResult = result as {
+        nodeId: string;
+        nodeName: string;
+        styleId: string;
+        styleName: string;
+      };
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Applied style "${typedResult.styleName}" to node "${typedResult.nodeName}" (${typedResult.nodeId})`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error applying paint style: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// Rename Paint Style Tool
+server.tool(
+  "rename_paint_style",
+  "Rename a paint style.",
+  {
+    styleId: z.string().describe("The ID of the style to rename."),
+    newName: z.string().describe("The new name for the style.")
+  },
+  async ({ styleId, newName }: any) => {
+    try {
+      const result = await sendCommandToFigma("rename_paint_style", { styleId, newName });
+      const typedResult = result as { styleId: string; oldName: string; newName: string };
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Renamed style "${typedResult.oldName}" to "${typedResult.newName}" (${typedResult.styleId})`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error renaming style: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
+// Swap Style Tool
+server.tool(
+  "swap_style",
+  "Find all usages of a specific paint style and replace them with another style.",
+  {
+    fromStyleId: z.string().describe("The ID of the style to replace."),
+    toStyleId: z.string().describe("The ID of the new style to use."),
+  },
+  async ({ fromStyleId, toStyleId }: any) => {
+    try {
+      const result = await sendCommandToFigma("swap_style", { fromStyleId, toStyleId });
+      const typedResult = result as { success: boolean; message: string; count: number };
+      return {
+        content: [
+          {
+            type: "text",
+            text: typedResult.message || `Swapped style in ${typedResult.count} nodes.`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error swapping style: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+
 // Get Local Components Tool
 server.tool(
   "get_local_components",
@@ -2648,7 +2844,12 @@ type FigmaCommand =
   | "set_default_connector"
   | "create_connections"
   | "set_focus"
-  | "set_selections";
+  | "set_selections"
+  | "create_paint_style"
+  | "create_multiple_paint_styles"
+  | "apply_paint_style"
+  | "rename_paint_style"
+  | "swap_style";
 
 type CommandParams = {
   get_document_info: Record<string, never>;
@@ -2797,7 +2998,19 @@ type CommandParams = {
   set_selections: {
     nodeIds: string[];
   };
-
+  create_paint_style: {
+    name: string;
+    color: { r: number; g: number; b: number; a?: number };
+  };
+  create_multiple_paint_styles: {
+    styles: Array<{
+      name: string;
+      color: { r: number; g: number; b: number; a?: number };
+    }>;
+  };
+  apply_paint_style: { nodeId: string; styleId: string };
+  rename_paint_style: { styleId: string; newName: string };
+  swap_style: { fromStyleId: string; toStyleId: string };
 };
 
 

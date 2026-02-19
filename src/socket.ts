@@ -40,10 +40,10 @@ const server = Bun.serve({
   // uncomment this to allow connections in windows wsl
   // hostname: "0.0.0.0",
   port: process.env.PORT ? parseInt(process.env.PORT) : 3055,
-  // tls: {
-  //   key: Bun.file(process.env.SSL_KEY_PATH!),
-  //   cert: Bun.file(process.env.SSL_CERT_PATH!),
-  // },
+  tls: {
+    key: Bun.file(process.env.SSL_KEY_PATH!),
+    cert: Bun.file(process.env.SSL_CERT_PATH!),
+  },
   fetch(req: Request, server: Server) {
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
