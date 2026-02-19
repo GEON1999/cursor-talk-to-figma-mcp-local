@@ -395,6 +395,94 @@ server.tool(
   }
 );
 
+// Create Polygon Tool
+server.tool(
+  "create_polygon",
+  "Create a new polygon (regular polygon) in Figma",
+  {
+    x: z.number().describe("X position"),
+    y: z.number().describe("Y position"),
+    width: z.number().describe("Width of the polygon bounding box"),
+    height: z.number().describe("Height of the polygon bounding box"),
+    pointCount: z
+      .number()
+      .int()
+      .min(3)
+      .optional()
+      .describe("Number of sides/points of the polygon (default: 3, min: 3). e.g., 5 for pentagon, 6 for hexagon"),
+    name: z.string().optional().describe("Optional name for the polygon"),
+    parentId: z
+      .string()
+      .optional()
+      .describe("Optional parent node ID to append the polygon to"),
+    fillColor: z
+      .object({
+        r: z.number().min(0).max(1).describe("Red component (0-1)"),
+        g: z.number().min(0).max(1).describe("Green component (0-1)"),
+        b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+        a: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("Alpha/Opacity component (0-1)"),
+      })
+      .optional()
+      .describe("Fill color in RGBA format"),
+    strokeColor: z
+      .object({
+        r: z.number().min(0).max(1).describe("Red component (0-1)"),
+        g: z.number().min(0).max(1).describe("Green component (0-1)"),
+        b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+        a: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("Alpha/Opacity component (0-1)"),
+      })
+      .optional()
+      .describe("Stroke color in RGBA format"),
+    strokeWeight: z.number().positive().optional().describe("Stroke weight"),
+    rotation: z.number().optional().describe("Rotation angle in degrees"),
+  },
+  async ({ x, y, width, height, pointCount, name, parentId, fillColor, strokeColor, strokeWeight, rotation }: any) => {
+    try {
+      const result = await sendCommandToFigma("create_polygon", {
+        x,
+        y,
+        width,
+        height,
+        pointCount: pointCount || 3,
+        name: name || "Polygon",
+        parentId,
+        fillColor,
+        strokeColor,
+        strokeWeight,
+        rotation: rotation || 0,
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created polygon "${JSON.stringify(result)}"`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating polygon: ${error instanceof Error ? error.message : String(error)
+              }`,
+          },
+        ],
+      };
+    }
+  }
+);
+
 // Create Frame Tool
 server.tool(
   "create_frame",
@@ -2811,6 +2899,7 @@ type FigmaCommand =
   | "get_nodes_info"
   | "read_my_design"
   | "create_rectangle"
+  | "create_polygon"
   | "create_frame"
   | "create_text"
   | "set_fill_color"

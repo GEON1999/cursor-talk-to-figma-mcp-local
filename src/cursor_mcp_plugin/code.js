@@ -254,6 +254,8 @@ async function handleCommand(command, params) {
       return await swapStyle(params);
     case "set_selections":
       return await setSelections(params);
+    case "create_polygon":
+      return await createPolygon(params);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -771,6 +773,93 @@ async function createRectangle(params) {
     width: rect.width,
     height: rect.height,
     parentId: rect.parent ? rect.parent.id : undefined,
+  };
+}
+
+async function createPolygon(params) {
+  const {
+    x = 0,
+    y = 0,
+    width = 100,
+    height = 100,
+    pointCount = 3,
+    name = "Polygon",
+    parentId,
+    fillColor,
+    strokeColor,
+    strokeWeight,
+    rotation = 0,
+  } = params || {};
+
+  const polygon = figma.createPolygon();
+  polygon.x = x;
+  polygon.y = y;
+  polygon.resize(width, height);
+  polygon.pointCount = pointCount;
+  polygon.name = name;
+
+  if (rotation !== 0) {
+    polygon.rotation = rotation;
+  }
+
+  // Set fill color
+  if (fillColor) {
+    polygon.fills = [
+      {
+        type: "SOLID",
+        color: {
+          r: fillColor.r || 0,
+          g: fillColor.g || 0,
+          b: fillColor.b || 0,
+        },
+        opacity: fillColor.a !== undefined ? fillColor.a : 1,
+      },
+    ];
+  }
+
+  // Set stroke color
+  if (strokeColor) {
+    polygon.strokes = [
+      {
+        type: "SOLID",
+        color: {
+          r: strokeColor.r || 0,
+          g: strokeColor.g || 0,
+          b: strokeColor.b || 0,
+        },
+        opacity: strokeColor.a !== undefined ? strokeColor.a : 1,
+      },
+    ];
+    if (strokeWeight !== undefined) {
+      polygon.strokeWeight = strokeWeight;
+    }
+  }
+
+  // If parentId is provided, append to that node, otherwise append to current page
+  if (parentId) {
+    const parentNode = await figma.getNodeByIdAsync(parentId);
+    if (!parentNode) {
+      throw new Error(`Parent node not found with ID: ${parentId}`);
+    }
+    if (!("appendChild" in parentNode)) {
+      throw new Error(`Parent node does not support children: ${parentId}`);
+    }
+    parentNode.appendChild(polygon);
+  } else {
+    figma.currentPage.appendChild(polygon);
+  }
+
+  return {
+    id: polygon.id,
+    name: polygon.name,
+    type: "POLYGON",
+    x: polygon.x,
+    y: polygon.y,
+    width: polygon.width,
+    height: polygon.height,
+    pointCount: polygon.pointCount,
+    rotation: polygon.rotation,
+    parentId: polygon.parent ? polygon.parent.id : undefined,
   };
 }
 

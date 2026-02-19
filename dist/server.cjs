@@ -312,6 +312,67 @@ server.tool(
   }
 );
 server.tool(
+  "create_polygon",
+  "Create a new polygon (regular polygon) in Figma",
+  {
+    x: import_zod.z.number().describe("X position"),
+    y: import_zod.z.number().describe("Y position"),
+    width: import_zod.z.number().describe("Width of the polygon bounding box"),
+    height: import_zod.z.number().describe("Height of the polygon bounding box"),
+    pointCount: import_zod.z.number().int().min(3).optional().describe("Number of sides/points of the polygon (default: 3, min: 3). e.g., 5 for pentagon, 6 for hexagon"),
+    name: import_zod.z.string().optional().describe("Optional name for the polygon"),
+    parentId: import_zod.z.string().optional().describe("Optional parent node ID to append the polygon to"),
+    fillColor: import_zod.z.object({
+      r: import_zod.z.number().min(0).max(1).describe("Red component (0-1)"),
+      g: import_zod.z.number().min(0).max(1).describe("Green component (0-1)"),
+      b: import_zod.z.number().min(0).max(1).describe("Blue component (0-1)"),
+      a: import_zod.z.number().min(0).max(1).optional().describe("Alpha/Opacity component (0-1)")
+    }).optional().describe("Fill color in RGBA format"),
+    strokeColor: import_zod.z.object({
+      r: import_zod.z.number().min(0).max(1).describe("Red component (0-1)"),
+      g: import_zod.z.number().min(0).max(1).describe("Green component (0-1)"),
+      b: import_zod.z.number().min(0).max(1).describe("Blue component (0-1)"),
+      a: import_zod.z.number().min(0).max(1).optional().describe("Alpha/Opacity component (0-1)")
+    }).optional().describe("Stroke color in RGBA format"),
+    strokeWeight: import_zod.z.number().positive().optional().describe("Stroke weight"),
+    rotation: import_zod.z.number().optional().describe("Rotation angle in degrees")
+  },
+  async ({ x, y, width, height, pointCount, name, parentId, fillColor, strokeColor, strokeWeight, rotation }) => {
+    try {
+      const result = await sendCommandToFigma("create_polygon", {
+        x,
+        y,
+        width,
+        height,
+        pointCount: pointCount || 3,
+        name: name || "Polygon",
+        parentId,
+        fillColor,
+        strokeColor,
+        strokeWeight,
+        rotation: rotation || 0
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created polygon "${JSON.stringify(result)}"`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating polygon: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+server.tool(
   "create_frame",
   "Create a new frame in Figma",
   {
