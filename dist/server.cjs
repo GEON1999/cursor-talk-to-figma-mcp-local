@@ -27,6 +27,7 @@ var import_mcp = require("@modelcontextprotocol/sdk/server/mcp.js");
 var import_stdio = require("@modelcontextprotocol/sdk/server/stdio.js");
 var import_zod = require("zod");
 var import_ws = __toESM(require("ws"), 1);
+var import_http = require("http");
 var import_uuid = require("uuid");
 var logger = {
   info: (message) => process.stderr.write(`[INFO] ${message}
@@ -51,6 +52,7 @@ var args = process.argv.slice(2);
 var serverArg = args.find((arg) => arg.startsWith("--server="));
 var serverUrl = serverArg ? serverArg.split("=")[1] : "localhost";
 var WS_URL = serverUrl === "localhost" ? `ws://${serverUrl}` : `wss://${serverUrl}`;
+var DEFAULT_CHANNEL = "figma-default";
 server.tool(
   "get_document_info",
   "Get detailed information about the current Figma document",
@@ -2469,6 +2471,13 @@ function connectToFigma(port = 3055) {
   ws.on("open", () => {
     logger.info("Connected to Figma socket server");
     currentChannel = null;
+    setTimeout(() => {
+      joinChannel(DEFAULT_CHANNEL).then(() => {
+        logger.info(`Auto-joined default channel: ${DEFAULT_CHANNEL}`);
+      }).catch((err) => {
+        logger.warn(`Auto-join failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }, 500);
   });
   ws.on("message", (data) => {
     try {
@@ -2593,7 +2602,7 @@ server.tool(
   "join_channel",
   "Join a specific channel to communicate with Figma",
   {
-    channel: import_zod.z.string().describe("The name of the channel to join").default("")
+    channel: import_zod.z.string().describe("The name of the channel to join").default("figma-default")
   },
   async ({ channel }) => {
     try {
@@ -2632,8 +2641,110 @@ server.tool(
     }
   }
 );
+var wsChannels = /* @__PURE__ */ new Map();
+var embeddedWsServer = null;
+function startEmbeddedSocketServer(port = 3055) {
+  const httpServer = (0, import_http.createServer)((req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("WebSocket server running");
+  });
+  embeddedWsServer = new import_ws.WebSocketServer({ server: httpServer });
+  embeddedWsServer.on("connection", (clientWs) => {
+    logger.info("New client connected to embedded WS server");
+    clientWs.send(JSON.stringify({
+      type: "system",
+      message: "Please join a channel to start chatting"
+    }));
+    clientWs.on("message", (rawMessage) => {
+      try {
+        const data = JSON.parse(rawMessage.toString());
+        if (data.type === "join") {
+          const channelName = data.channel;
+          if (!channelName || typeof channelName !== "string") {
+            clientWs.send(JSON.stringify({ type: "error", message: "Channel name is required" }));
+            return;
+          }
+          if (!wsChannels.has(channelName)) {
+            wsChannels.set(channelName, /* @__PURE__ */ new Set());
+          }
+          const channelClients = wsChannels.get(channelName);
+          channelClients.add(clientWs);
+          clientWs.send(JSON.stringify({
+            type: "system",
+            message: `Joined channel: ${channelName}`,
+            channel: channelName
+          }));
+          clientWs.send(JSON.stringify({
+            type: "system",
+            message: { id: data.id, result: "Connected to channel: " + channelName },
+            channel: channelName
+          }));
+          channelClients.forEach((client) => {
+            if (client !== clientWs && client.readyState === import_ws.default.OPEN) {
+              client.send(JSON.stringify({
+                type: "system",
+                message: "A new user has joined the channel",
+                channel: channelName
+              }));
+            }
+          });
+          return;
+        }
+        if (data.type === "message") {
+          const channelName = data.channel;
+          if (!channelName || typeof channelName !== "string") {
+            clientWs.send(JSON.stringify({ type: "error", message: "Channel name is required" }));
+            return;
+          }
+          const channelClients = wsChannels.get(channelName);
+          if (!channelClients || !channelClients.has(clientWs)) {
+            clientWs.send(JSON.stringify({ type: "error", message: "You must join the channel first" }));
+            return;
+          }
+          channelClients.forEach((client) => {
+            if (client.readyState === import_ws.default.OPEN) {
+              client.send(JSON.stringify({
+                type: "broadcast",
+                message: data.message,
+                sender: client === clientWs ? "You" : "User",
+                channel: channelName
+              }));
+            }
+          });
+        }
+      } catch (err) {
+        logger.error(`Embedded WS error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+    clientWs.on("close", () => {
+      wsChannels.forEach((clients) => {
+        clients.delete(clientWs);
+      });
+    });
+  });
+  httpServer.listen(port, () => {
+    logger.info(`Embedded WebSocket server running on port ${port}`);
+  });
+  httpServer.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      logger.info(`Port ${port} already in use \u2014 external WS server may be running`);
+    } else {
+      logger.error(`HTTP server error: ${err.message}`);
+    }
+  });
+}
 async function main() {
   try {
+    startEmbeddedSocketServer();
+    await new Promise((resolve) => setTimeout(resolve, 500));
     connectToFigma();
   } catch (error) {
     logger.warn(`Could not connect to Figma initially: ${error instanceof Error ? error.message : String(error)}`);
