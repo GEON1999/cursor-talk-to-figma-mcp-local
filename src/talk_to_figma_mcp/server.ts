@@ -3408,6 +3408,10 @@ function startEmbeddedSocketServer(port: number = 3055): void {
 
   embeddedWsServer = new WebSocketServer({ server: httpServer });
 
+  embeddedWsServer.on('error', (err: any) => {
+    logger.error(`WebSocketServer error: ${err.message}`);
+  });
+
   embeddedWsServer.on('connection', (clientWs: WebSocket) => {
     logger.info('New client connected to embedded WS server');
 

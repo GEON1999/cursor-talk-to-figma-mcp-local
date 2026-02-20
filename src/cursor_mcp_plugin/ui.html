@@ -300,7 +300,7 @@
           </p>
           <textarea
             id="mcp-json"
-            rows="5"
+            rows="7"
             readonly
             style="
               width: 100%;
@@ -369,9 +369,9 @@
 
           <h2>How to Use</h2>
           <ol>
-            <li>Make sure the MCP server is running in Cursor</li>
-            <li>Connect to the server using the port number (default: 3055)</li>
-            <li>Once connected, you can interact with Figma through Cursor</li>
+            <li>Make sure the "Handle Figma MCP" server is configured in your IDE (Cursor/Antigravity).</li>
+            <li>When your IDE starts, it automatically starts the MCP server.</li>
+            <li>Click "Connect" in this plugin to link Figma with your AI.</li>
           </ol>
         </div>
       </div>
@@ -413,9 +413,9 @@
             ? "Connected to Cursor MCP server"
             : "Not connected to Cursor MCP server");
 
-        // Add instructions for localhost when disconnected
+        // Only show basic disconnected message
         if (!isConnected) {
-          statusMessage += `<br><br>Run this in your terminal, then connect<br><code>bunx cursor-talk-to-figma-socket</code>`;
+          statusMessage = "Not connected to Cursor MCP server";
         }
 
         connectionStatus.innerHTML = statusMessage;

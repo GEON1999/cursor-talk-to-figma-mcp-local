@@ -1,6 +1,6 @@
 {
-  "name": "Cursor MCP Plugin",
-  "id": "1606531612329264729",
+  "name": "Handle Figma MCP",
+  "id": "1606544346655572602",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",

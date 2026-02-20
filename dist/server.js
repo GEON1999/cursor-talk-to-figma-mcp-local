@@ -2635,6 +2635,9 @@ function startEmbeddedSocketServer(port = 3055) {
     res.end("WebSocket server running");
   });
   embeddedWsServer = new WebSocketServer({ server: httpServer });
+  embeddedWsServer.on("error", (err) => {
+    logger.error(`WebSocketServer error: ${err.message}`);
+  });
   embeddedWsServer.on("connection", (clientWs) => {
     logger.info("New client connected to embedded WS server");
     clientWs.send(JSON.stringify({
