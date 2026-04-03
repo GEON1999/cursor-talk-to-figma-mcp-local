@@ -837,6 +837,89 @@ server.tool(
   }
 );
 server.tool(
+  "create_color_variable",
+  "Create or update a single Figma color variable. If the variable exists, its value for the default mode is updated.",
+  {
+    name: z.string().describe("Name of the color variable. Use '/' for grouping, e.g., 'primary/50'"),
+    r: z.number().min(0).max(1).describe("Red component (0-1)"),
+    g: z.number().min(0).max(1).describe("Green component (0-1)"),
+    b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+    a: z.number().min(0).max(1).optional().describe("Alpha/opacity (0-1, default: 1)"),
+    collectionName: z.string().optional().describe("The name of the variable collection to use or create. Default: 'TalkToFigmaMCP Variables'")
+  },
+  async ({ name, r, g, b, a, collectionName }) => {
+    try {
+      const result = await sendCommandToFigma("create_color_variable", {
+        name,
+        color: { r, g, b, a: a !== void 0 ? a : 1 },
+        collectionName: collectionName || "TalkToFigmaMCP Variables"
+      });
+      const typedResult = result;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created/Updated variable "${typedResult.name}" (ID: ${typedResult.id}) in collection ${typedResult.collectionId}`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating color variable: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+server.tool(
+  "create_multiple_color_variables",
+  "Create or update multiple Figma color variables at once. Group using '/' in names.",
+  {
+    variables: z.array(z.object({
+      name: z.string().describe("Name of the color variable, e.g., 'primary/50'"),
+      r: z.number().min(0).max(1).describe("Red component (0-1)"),
+      g: z.number().min(0).max(1).describe("Green component (0-1)"),
+      b: z.number().min(0).max(1).describe("Blue component (0-1)"),
+      a: z.number().min(0).max(1).optional().describe("Alpha/opacity (0-1, default: 1)")
+    })).describe("Array of color variables to create"),
+    collectionName: z.string().optional().describe("The name of the variable collection to use or create. Default: 'TalkToFigmaMCP Variables'")
+  },
+  async ({ variables, collectionName }) => {
+    try {
+      const mappedVariables = variables.map((v) => ({
+        name: v.name,
+        color: { r: v.r, g: v.g, b: v.b, a: v.a !== void 0 ? v.a : 1 }
+      }));
+      const result = await sendCommandToFigma("create_multiple_color_variables", {
+        variables: mappedVariables,
+        collectionName: collectionName || "TalkToFigmaMCP Variables"
+      });
+      const typedResult = result;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created/Updated ${typedResult.created}/${typedResult.totalRequested} variables.${typedResult.failed > 0 ? ` Failed: ${typedResult.failed}` : ""}`
+          }
+        ]
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error creating multiple color variables: ${error instanceof Error ? error.message : String(error)}`
+          }
+        ]
+      };
+    }
+  }
+);
+server.tool(
   "create_paint_style",
   "Create a new color style (paint style) in Figma. Use folder notation with '/' in the name to organize styles into groups, e.g., 'teal/teal-50'.",
   {

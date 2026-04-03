@@ -238,6 +238,10 @@ async function handleCommand(command, params) {
       return await createConnections(params);
     case "set_focus":
       return await setFocus(params);
+    case "create_color_variable":
+      return await createColorVariable(params);
+    case "create_multiple_color_variables":
+      return await createMultipleColorVariables(params);
     case "create_paint_style":
       return await createPaintStyle(params);
     case "create_multiple_paint_styles":
@@ -248,6 +252,8 @@ async function handleCommand(command, params) {
         return await renamePaintStyle({ styleId: parts[0], newName: parts[1] });
       }
       return await applyPaintStyle(params);
+    case "rename_node":
+      return await renameNode(params);
     case "rename_paint_style":
       return await renamePaintStyle(params);
     case "swap_style":
@@ -3341,6 +3347,99 @@ async function getInstanceOverrides(instanceNode = null) {
   }
 }
 
+async function createColorVariable(params) {
+  const { name, color: { r, g, b, a }, collectionName = "TalkToFigmaMCP Variables" } = params || {};
+  
+  if (!name) throw new Error("Missing name parameter");
+  
+  // Find or create collection
+  let collections = await figma.variables.getLocalVariableCollectionsAsync();
+  let collection = collections.find(c => c.name === collectionName);
+  
+  if (!collection) {
+    collection = figma.variables.createVariableCollection(collectionName);
+  }
+  
+  // Find or create variable
+  let variables = await figma.variables.getLocalVariablesAsync('COLOR');
+  let variable = variables.find(v => v.name === name && v.variableCollectionId === collection.id);
+  
+  if (!variable) {
+    variable = figma.variables.createVariable(name, collection, 'COLOR');
+  }
+  
+  // Set value for default mode
+  variable.setValueForMode(collection.defaultModeId, {r, g, b, a: a !== undefined ? a : 1});
+  
+  return {
+    id: variable.id,
+    name: variable.name,
+    key: variable.key,
+    collectionId: collection.id
+  };
+}
+
+async function createMultipleColorVariables(params) {
+  const { variables, collectionName = "TalkToFigmaMCP Variables" } = params || {};
+  
+  if (!variables || !Array.isArray(variables)) {
+    throw new Error("Missing or invalid variables array");
+  }
+  
+  // Find or create collection
+  let collections = await figma.variables.getLocalVariableCollectionsAsync();
+  let collection = collections.find(c => c.name === collectionName);
+  
+  if (!collection) {
+    collection = figma.variables.createVariableCollection(collectionName);
+  }
+  
+  const existingVariables = await figma.variables.getLocalVariablesAsync('COLOR');
+  
+  const results = [];
+  const errors = [];
+  let created = 0;
+  let failed = 0;
+  
+  for (const vData of variables) {
+    try {
+      const { name, color: { r, g, b, a } } = vData;
+      if (!name) throw new Error("Missing name for variable");
+      
+      let variable = existingVariables.find(v => v.name === name && v.variableCollectionId === collection.id);
+      
+      if (!variable) {
+        variable = figma.variables.createVariable(name, collection, 'COLOR');
+      }
+      
+      variable.setValueForMode(collection.defaultModeId, {r, g, b, a: a !== undefined ? a : 1});
+      
+      results.push({
+        success: true,
+        id: variable.id,
+        name: variable.name,
+        key: variable.key
+      });
+      created++;
+    } catch (error) {
+      errors.push({
+        success: false,
+        name: vData.name || "Unknown",
+        error: error.message
+      });
+      failed++;
+    }
+  }
+  
+  return {
+    totalRequested: variables.length,
+    created,
+    failed,
+    results,
+    errors
+  };
+}
+
 /**
  * Helper function to validate and get target instances
  * @param {string[]} targetNodeIds - Array of instance node IDs
@@ -4435,4 +4534,17 @@ async function setSelections(params) {
     notFoundIds: notFoundIds,
     message: `Selected ${nodes.length} nodes${notFoundIds.length > 0 ? ` (${notFoundIds.length} not found)` : ""}`,
   };
+}
+
+async function renameNode(params) {
+  const { nodeId, newName } = params;
+  if (!nodeId || !newName) {
+    throw new Error("Missing nodeId or newName");
+  }
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node) {
+    throw new Error("Node not found");
+  }
+  node.name = newName;
+  return { success: true, message: "Node renamed to " + newName };
 }

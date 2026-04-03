@@ -1,7 +1,7 @@
 {
   "name": "handle-figma-mcp",
   "description": "Handle Figma MCP - Custom MCP server for Figma integration",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "module": "dist/server.js",
   "main": "dist/server.js",
   "bin": {
