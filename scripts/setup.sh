@@ -9,10 +9,11 @@ bun install
 echo "{
   \"mcpServers\": {
     \"TalkToFigma\": {
-      \"command\": \"bunx\",
+      \"command\": \"npx\",
       \"args\": [
-        \"cursor-talk-to-figma-mcp@latest\"
+        \"-y\",
+        \"handle-figma-mcp@latest\"
       ]
     }
   }
-}" > .cursor/mcp.json 
+}" > .cursor/mcp.json
